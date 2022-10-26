@@ -1,9 +1,10 @@
-import React, { ReactNode, useState, useRef, useLayoutEffect } from 'react';
+import React, { Children, ReactNode, useState, useRef, useLayoutEffect } from 'react';
 import {
   Flex,
   Box,
   Text
 } from '@chakra-ui/react';
+import { Direction, TouchListener } from './touch';
 
 type ContentProps = {
   children?: ReactNode
@@ -17,23 +18,45 @@ function Content({children}: ContentProps){
     </Box>
   );
 }
-function App() {
-  const nPages = 5;
+
+
+
+type LayoutProps = {
+  children: ReactNode
+}
+function Layout({children}: LayoutProps) {
   const [page, setPage] = useState<number>(0);
+  const [ primary, ...secondary ] = Children.toArray(children);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const nPages = secondary.length;
   const offset = `-${page*100}%`;
   useLayoutEffect(() => {
-    const listener = (evt: KeyboardEvent) => {
-      console.log(evt);
-      if(evt.code === 'ArrowLeft') {
-        setPage((p: number) => (p-1+nPages) % nPages);
-      } else if(evt.code === 'ArrowRight') {
-        setPage((p: number) => (p+1+nPages) % nPages);
+    if(ref.current) {
+      const listener = (evt: KeyboardEvent) => {
+        console.log(evt);
+        if(evt.code === 'ArrowLeft') {
+          setPage((p: number) => (p-1+nPages) % nPages);
+        } else if(evt.code === 'ArrowRight') {
+          setPage((p: number) => (p+1+nPages) % nPages);
+        }
       }
-    }
-    window.addEventListener('keydown', listener);
-    return () => {
-      console.log("removig listener...");
-      window.removeEventListener('keydown', listener);
+      window.addEventListener('keydown', listener);
+      const touchListener = new TouchListener((dir: Direction) => {
+        if(dir === 'left') {
+          setPage((p: number) => p === nPages-1 ? p : p+1);
+        } else if(dir === 'right') {
+          setPage((p: number) => p === 0 ? p : p-1);
+        }
+      });
+      touchListener.add(ref.current);
+      return () => {
+        console.log("removig listener...");
+        if(ref.current) {
+          touchListener.remove(ref.current);
+        }
+        window.removeEventListener('keydown', listener);
+      }
     }
   }, []);
   return (
@@ -41,13 +64,17 @@ function App() {
       direction='column'
       backgroundColor='red'
       h='100%'
-      w={['20%', '50%']}
+      w={['100%', '25%']}
     >
+      <Content>
+        { primary }
+      </Content>
       <Box
         position='relative'
         backgroundColor='yellow'
         overflow='hidden'
         flex='1'
+        ref={ref}
       >
         <Flex
           direction='row'
@@ -60,24 +87,30 @@ function App() {
           transition='left 1s ease-in-out'
           top='0'
         >
-          <Content>
-            <Text w='100%' backgroundColor='yellow' color='blue'> Hello! </Text>
-          </Content>
-          <Content>
-            <Text w='100%' backgroundColor='pink' color='blue'> Hello! </Text>
-          </Content>
-          <Content>
-            <Box
-              w='100%'
-              h='100%'
-              backgroundColor='cyan'
-              border='1px solid black'
-              boxSizing='border-box'
-            />
-          </Content>
+          {
+            secondary.map( (child, i) =>
+              <Content key={i}>
+                { child }
+              </Content>
+            )
+          }
         </Flex>
       </Box>
     </Flex>
+  );
+}
+function App() {
+  return (
+    <Layout>
+      <Text> Hello </Text>
+      <Box
+        border='1px solid black'
+        w='100%'
+        h='100%'
+      />
+      <Text> Ding </Text>
+      <Text> Dong </Text>
+    </Layout>
   );
 }
 
